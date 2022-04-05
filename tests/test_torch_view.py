@@ -37,6 +37,29 @@ def test_index_multi_d():
     assert torch.allclose(key_ravelled, query)
 
 
+def test_value_2d():
+    high = 50
+    N = 15
+    shape = (5, 10)
+    data = torch.arange(0, high).reshape(shape)
+    data_view = view.View(data, value_ranges=[(0, 1), (0, 1)])
+    key_ravelled = torch.randint(high=high, size=(N,))
+    index_key = view.unravel_index(key_ravelled, shape)
+    # convert to value between 0 and 1
+    key = index_key / torch.tensor(shape)
+
+    query = data_view[key]
+    # since the values are just a range, the ravelled key is the queried value
+    assert torch.allclose(key_ravelled, query)
+
+    # invalidate last key
+    key[-1][0] = high
+    query = data_view[key]
+    # check that the last key is an invalid value
+    assert query[-1] == data_view.invalid_value
+    assert torch.allclose(key_ravelled[:-1], query[:-1])
+
+
 def test_set():
     high = 50
     N = 15
@@ -69,3 +92,4 @@ if __name__ == "__main__":
     test_index_2d()
     test_index_multi_d()
     test_set()
+    test_value_2d()

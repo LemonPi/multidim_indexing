@@ -1,5 +1,4 @@
 import torch
-import numpy as np
 from typing import List, Tuple, Union
 
 
@@ -13,9 +12,9 @@ class View:
 
         if value_ranges is not None:
             self._min = torch.tensor([range[0] for range in value_ranges], device=self.device, dtype=self.dtype)
-            self._max = torch.tensor([range[0] for range in value_ranges], device=self.device, dtype=self.dtype)
+            self._max = torch.tensor([range[1] for range in value_ranges], device=self.device, dtype=self.dtype)
             self._is_value_range = True
-            self._resolution = (self._max - self._min) / self.shape
+            self._resolution = (self._max - self._min) / torch.tensor(self.shape, device=self.device)
         else:
             self._min = torch.zeros(self.dim, device=self.device, dtype=torch.long)
             self._max = torch.tensor(source.shape, device=self.device, dtype=torch.long) - 1
@@ -30,16 +29,17 @@ class View:
         :param key: N x d key (could be values or indices depending on underlying data)
         :return: ravelled indices of length N along with boolean validity mask of length N
         """
-        # convert key from value ranges to indices if necessary
-        if self._is_value_range:
-            index_key = (torch.round((key[:, i] - self._min[i]) / self._resolution[i]).to(dtype=torch.long) for i in
-                         range(self.dim))
-            key = index_key
-
         # eliminate keys outside query
         valid = torch.all(
             torch.stack([(self._min[i] <= key[:, i]) & (key[:, i] <= self._max[i]) for i in range(self.dim)]), dim=0)
         key = key[valid]
+        # convert key from value ranges to indices if necessary
+        if self._is_value_range:
+            index_key = torch.stack(
+                [torch.round((key[:, i] - self._min[i]) / self._resolution[i]).to(dtype=torch.long) for i in
+                 range(self.dim)]).transpose(0, 1)
+            key = index_key
+
         # flatten
         flat_key = ravel_multi_index(key, self.shape)
         return flat_key, valid
