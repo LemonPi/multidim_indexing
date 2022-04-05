@@ -65,7 +65,7 @@ class View:
         :return:
         """
         flat_key, valid = self.get_valid_ravel_indices(key)
-        if torch.is_tensor(value):
+        if torch.is_tensor(value) and torch.numel(value) == torch.numel(valid):
             value = value.view(-1)[valid]
         self._d[flat_key] = value
 
