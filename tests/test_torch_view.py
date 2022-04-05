@@ -30,6 +30,29 @@ def test_index_multi_d():
     assert torch.allclose(key_ravelled, query)
 
 
+def test_set():
+    high = 50
+    N = 15
+    shape = (5, 10)
+    data = torch.arange(0, high).reshape(shape)
+    data_view = view.View(data)
+    # having repeating indices results in undefined behavior
+    key_ravelled = torch.randperm(high)[:N]
+    key = view.unravel_index(key_ravelled, shape)
+
+    data_view[key] = -5
+    # test that we changed the original data
+    for i in range(N):
+        assert int(data[tuple(key[i])]) == -5
+
+    rand_val = torch.randint(low=-50, high=-5, size=(N,))
+    data_view[key] = rand_val
+
+    for i in range(N):
+        assert data[tuple(key[i])] == rand_val[i]
+
+
 if __name__ == "__main__":
     test_index_2d()
     test_index_multi_d()
+    test_set()

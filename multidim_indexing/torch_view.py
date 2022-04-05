@@ -57,6 +57,18 @@ class View:
         res[valid] = self._d[flat_key]
         return res
 
+    def __setitem__(self, key, value):
+        """
+        Batch (size N) assignment
+        :param key: N x d query, with each row corresponding to one element to look up
+        :param value: value of compatible type and shape
+        :return:
+        """
+        flat_key, valid = self.get_valid_ravel_indices(key)
+        if torch.is_tensor(value):
+            value = value.view(-1)[valid]
+        self._d[flat_key] = value
+
 
 # filling in functions from numpy from francois-rozet
 Shape = Union[List[int], Tuple[int, ...], torch.Size]
