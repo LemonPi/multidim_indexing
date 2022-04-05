@@ -7,7 +7,7 @@ def test_index_2d():
     N = 15
     shape = (5, 10)
     data = np.arange(0, high).reshape(shape)
-    data_view = view.NumpyView(data)
+    data_view = view.NumpyMultidimView(data)
     key_ravelled = np.random.randint(0, high=high, size=(N,))
     key = np.stack(np.unravel_index(key_ravelled, shape)).T
 
@@ -28,7 +28,7 @@ def test_index_multi_d():
     N = 15
     shape = (5, 10, 2, 5)
     data = np.arange(0, high).reshape(shape)
-    data_view = view.NumpyView(data)
+    data_view = view.NumpyMultidimView(data)
     key_ravelled = np.random.randint(0, high=high, size=(N,))
     key = np.stack(np.unravel_index(key_ravelled, shape)).T
 
@@ -42,7 +42,7 @@ def test_value_2d():
     N = 15
     shape = (5, 10)
     data = np.arange(0, high).reshape(shape)
-    data_view = view.NumpyView(data, value_ranges=[(0, 1), (0, 1)])
+    data_view = view.NumpyMultidimView(data, value_ranges=[(0, 1), (0, 1)])
     key_ravelled = np.random.randint(0, high=high, size=(N,))
     index_key = np.stack(np.unravel_index(key_ravelled, shape)).T
     # convert to value between 0 and 1
@@ -65,7 +65,7 @@ def test_set():
     N = 15
     shape = (5, 10)
     data = np.arange(0, high).reshape(shape)
-    data_view = view.NumpyView(data)
+    data_view = view.NumpyMultidimView(data)
     # having repeating indices results in undefined behavior
     key_ravelled = np.random.permutation(high)[:N]
     key = np.stack(np.unravel_index(key_ravelled, shape)).T

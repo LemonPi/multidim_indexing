@@ -1,12 +1,12 @@
 import torch
 from typing import List, Tuple, Union
-from multidim_indexing.view import View, classproperty
+from multidim_indexing.view import MultidimView, classproperty
 
 
-class TorchView(View):
+class TorchMultidimView(MultidimView):
     def __init__(self, source, *args, **kwargs):
         self.device = source.device
-        super(TorchView, self).__init__(source, *args, **kwargs)
+        super(TorchMultidimView, self).__init__(source, *args, **kwargs)
 
     @classproperty
     def lib(cls):

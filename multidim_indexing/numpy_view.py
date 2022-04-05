@@ -1,8 +1,8 @@
-from multidim_indexing.view import View, classproperty
+from multidim_indexing.view import MultidimView, classproperty
 import numpy as np
 
 
-class NumpyView(View):
+class NumpyMultidimView(MultidimView):
     @classproperty
     def lib(cls):
         return np

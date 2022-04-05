@@ -9,12 +9,13 @@ class classproperty(object):
         return self.f(owner)
 
 
-class View(abc.ABC):
-    def __init__(self, source, value_ranges=None, invalid_value=-1):
+class MultidimView(abc.ABC):
+    def __init__(self, source, value_ranges=None, invalid_value=-1, check_safety=True):
         self.dtype = source.dtype
         self.shape = source.shape
         self.dim = len(source.shape)
         self.invalid_value = invalid_value
+        self.check_safety = check_safety
 
         if value_ranges is not None:
             self._min = self.arr([range[0] for range in value_ranges], dtype=self.dtype)
@@ -69,10 +70,15 @@ class View(abc.ABC):
         :param key: N x d key (could be values or indices depending on underlying data)
         :return: ravelled indices of length N along with boolean validity mask of length N
         """
+        # flatten batch dimensions
+        key = key.reshape(-1, key.shape[-1])
         # eliminate keys outside query
-        valid = self.all(
-            self.lib.stack([(self._min[i] <= key[:, i]) & (key[:, i] <= self._max[i]) for i in range(self.dim)]), dim=0)
-        key = key[valid]
+        if self.check_safety:
+            valid = self.all(
+                self.lib.stack([(self._min[i] <= key[:, i]) & (key[:, i] <= self._max[i]) for i in range(self.dim)]), dim=0)
+            key = key[valid]
+        else:
+            valid = True
         # convert key from value ranges to indices if necessary
         if self._is_value_range:
             index_key = self.transpose(self.lib.stack(
@@ -90,12 +96,17 @@ class View(abc.ABC):
         :param key: N x d query, with each row corresponding to one element to look up
         :return:
         """
+        orig_key_shape = key.shape
 
         flat_key, valid = self.get_valid_ravel_indices(key)
-        N = key.shape[0]
-        res = self.lib.ones(N, dtype=self.dtype) * self.invalid_value
-        res[valid] = self._d[flat_key]
-        return res
+        if self.check_safety:
+            N = valid.shape[0]
+            res = self.lib.ones(N, dtype=self.dtype) * self.invalid_value
+            res[valid] = self._d[flat_key]
+        else:
+            res = self._d[flat_key]
+
+        return res.reshape(list(orig_key_shape[:-2]) + [-1])
 
     def __setitem__(self, key, value):
         """
@@ -106,5 +117,7 @@ class View(abc.ABC):
         """
         flat_key, valid = self.get_valid_ravel_indices(key)
         if self.is_valid_arr_value(value, valid):
-            value = value.reshape(-1)[valid]
+            value = value.reshape(-1)
+            if self.check_safety:
+                value = value[valid]
         self._d[flat_key] = value
