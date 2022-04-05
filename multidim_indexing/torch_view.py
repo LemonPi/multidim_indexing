@@ -1,73 +1,39 @@
 import torch
 from typing import List, Tuple, Union
+from multidim_indexing.view import View, classproperty
 
 
-class View:
-    def __init__(self, source, value_ranges=None, invalid_value=-1):
-        self.dtype = source.dtype
+class TorchView(View):
+    def __init__(self, source, *args, **kwargs):
         self.device = source.device
-        self.shape = source.shape
-        self.dim = len(source.shape)
-        self.invalid_value = invalid_value
+        super(TorchView, self).__init__(source, *args, **kwargs)
 
-        if value_ranges is not None:
-            self._min = torch.tensor([range[0] for range in value_ranges], device=self.device, dtype=self.dtype)
-            self._max = torch.tensor([range[1] for range in value_ranges], device=self.device, dtype=self.dtype)
-            self._is_value_range = True
-            self._resolution = (self._max - self._min) / torch.tensor(self.shape, device=self.device)
-        else:
-            self._min = torch.zeros(self.dim, device=self.device, dtype=torch.long)
-            self._max = torch.tensor(source.shape, device=self.device, dtype=torch.long) - 1
-            self._is_value_range = False
+    @classproperty
+    def lib(cls):
+        return torch
 
-        # flattened view of the source data
-        self._d = source.view(-1)
+    def arr(self, *args, **kwargs):
+        return torch.tensor(*args, device=self.device, **kwargs)
 
-    def get_valid_ravel_indices(self, key):
-        """
-        Ravel a N x d key into a N length key of ravelled indices
-        :param key: N x d key (could be values or indices depending on underlying data)
-        :return: ravelled indices of length N along with boolean validity mask of length N
-        """
-        # eliminate keys outside query
-        valid = torch.all(
-            torch.stack([(self._min[i] <= key[:, i]) & (key[:, i] <= self._max[i]) for i in range(self.dim)]), dim=0)
-        key = key[valid]
-        # convert key from value ranges to indices if necessary
-        if self._is_value_range:
-            index_key = torch.stack(
-                [torch.round((key[:, i] - self._min[i]) / self._resolution[i]).to(dtype=torch.long) for i in
-                 range(self.dim)]).transpose(0, 1)
-            key = index_key
+    @classmethod
+    def cast(cls, arr, dtype):
+        return arr.to(dtype=dtype)
 
-        # flatten
-        flat_key = ravel_multi_index(key, self.shape)
-        return flat_key, valid
+    @classmethod
+    def all(cls, arr, dim=0):
+        return torch.all(arr, dim=dim)
 
-    def __getitem__(self, key):
-        """
-        Get a batch (size N) from the data with dimension d, indexed by a multidimensional key
-        :param key: N x d query, with each row corresponding to one element to look up
-        :return:
-        """
+    @classmethod
+    def is_valid_arr_value(cls, val, valid):
+        return torch.is_tensor(val) and torch.numel(val) == torch.numel(valid)
 
-        flat_key, valid = self.get_valid_ravel_indices(key)
-        N = key.shape[0]
-        res = torch.ones(N, dtype=self.dtype, device=self.device) * self.invalid_value
-        res[valid] = self._d[flat_key]
-        return res
+    @classmethod
+    def ravel_multi_index(cls, key, shape):
+        return ravel_multi_index(key, shape)
 
-    def __setitem__(self, key, value):
-        """
-        Batch (size N) assignment
-        :param key: N x d query, with each row corresponding to one element to look up
-        :param value: value of compatible type and shape
-        :return:
-        """
-        flat_key, valid = self.get_valid_ravel_indices(key)
-        if torch.is_tensor(value) and torch.numel(value) == torch.numel(valid):
-            value = value.view(-1)[valid]
-        self._d[flat_key] = value
+    @classmethod
+    def transpose(cls, arr):
+        return arr.transpose(0, 1)
 
 
 # filling in functions from numpy from francois-rozet
