@@ -70,8 +70,15 @@ class MultidimView(abc.ABC):
         :param key: N x d key (could be values or indices depending on underlying data)
         :return: ravelled indices of length N along with boolean validity mask of length N
         """
+        # check if shorthand is used where batch indices are not specified
+        if key.shape[-1] == self.dim - 1:
+            B = key.shape[0]
+            batch_index = self.lib.arange(B).reshape(B, 1, 1).repeat(1, key.shape[-2], 1)
+            key = self.lib.cat((batch_index, key), dim=-1)
+
         # flatten batch dimensions
         key = key.reshape(-1, key.shape[-1])
+
         # eliminate keys outside query
         if self.check_safety:
             valid = self.all(

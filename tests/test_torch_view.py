@@ -116,6 +116,7 @@ def test_performance():
     e_ours = []
     e_builtin = []
     e_builtin2 = []
+    e_shorthand = []
 
     for run in range(runs):
         key_ravelled = torch.randint(high=high, size=(B, N,))
@@ -141,18 +142,29 @@ def test_performance():
         data_view = view.TorchMultidimView(data, check_safety=False)
         query = data_view[key]
         elapsed_ours = time.time() - start
+        e_ours.append(elapsed_ours)
+
+        start = time.time()
+        # check that we can get the default behavior of batch indexing by default being applied to that batch
+        # e.g. B x N x 2 indexing into B x X x Y
+        data_view = view.TorchMultidimView(data, check_safety=False)
+        query_shorthand = data_view[key_builtin]
+        e_shorthand.append(time.time() - start)
 
         # since the values are just a range, the ravelled key is the queried value
         assert torch.allclose(key_ravelled, query)
+        assert torch.allclose(key_ravelled, query_shorthand)
         assert torch.allclose(key_ravelled, query_builtin)
         assert torch.allclose(key_ravelled, query_builtin2)
-        e_ours.append(elapsed_ours)
 
     scale = 1000
     e_ours = np.array(e_ours) * scale
+    e_shorthand = np.array(e_shorthand) * scale
     e_builtin = np.array(e_builtin) * scale
     e_builtin2 = np.array(e_builtin2) * scale
-    print(f"elapsed ours {np.mean(e_ours)} ({np.std(e_ours)}) builtin {np.mean(e_builtin)} ({np.std(e_builtin)}) "
+    print(f"elapsed ours {np.mean(e_ours)} ({np.std(e_ours)}) "
+          f"ours shorthand {np.mean(e_shorthand)} ({np.std(e_shorthand)}) "
+          f"builtin {np.mean(e_builtin)} ({np.std(e_builtin)}) "
           f"builtin2 {np.mean(e_builtin2)} ({np.std(e_builtin2)})")
 
 
