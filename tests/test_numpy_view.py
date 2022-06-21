@@ -1,3 +1,4 @@
+import time
 import numpy as np
 from multidim_indexing import numpy_view as view
 
@@ -88,8 +89,74 @@ def test_set():
     assert data.reshape(-1)[key_ravelled[-1]] == rand_val[-1]
 
 
+def test_performance():
+    B = 256
+    dx = 2
+    N = 512
+    shape = (B, 64, 64)
+    high = np.prod(np.array(shape)).astype(dtype=np.long)
+    data = np.arange(0, high).reshape(shape)
+
+    runs = 1000
+
+    e_ours = []
+    e_builtin = []
+    e_builtin2 = []
+    e_shorthand = []
+
+    for run in range(runs):
+        key_ravelled = np.random.randint(0, high=high, size=(B, N,))
+        key = np.stack(np.unravel_index(key_ravelled, shape), axis=0)
+        for i in range(B):
+            key[0, i, :] = i
+        key_ravelled = np.ravel_multi_index(key, shape)
+
+        key_builtin = key.transpose((1, 2, 0))[:, :, 1:]
+        start = time.time()
+        nb = np.arange(B).reshape(-1, 1)
+        idxs = np.array_split(key_builtin, key_builtin.shape[-1], axis=-1)
+        idxs = [ix.squeeze(-1) for ix in idxs]
+        query_builtin = data[nb, idxs[0], idxs[1]]
+        elapsed_builtin = time.time() - start
+        e_builtin.append(elapsed_builtin)
+
+        start = time.time()
+        query_builtin2 = data[nb, key_builtin[:, :, 0], key_builtin[:, :, 1]]
+        e_builtin2.append(time.time() - start)
+
+        start = time.time()
+        data_view = view.NumpyMultidimView(data, check_safety=False)
+        query = data_view[key]
+        elapsed_ours = time.time() - start
+        e_ours.append(elapsed_ours)
+
+        start = time.time()
+        # check that we can get the default behavior of batch indexing by default being applied to that batch
+        # e.g. B x N x 2 indexing into B x X x Y
+        data_view = view.NumpyMultidimView(data, check_safety=False)
+        query_shorthand = data_view[key_builtin]
+        e_shorthand.append(time.time() - start)
+
+        # since the values are just a range, the ravelled key is the queried value
+        assert np.allclose(key_ravelled, query)
+        assert np.allclose(key_ravelled, query_shorthand)
+        assert np.allclose(key_ravelled, query_builtin)
+        assert np.allclose(key_ravelled, query_builtin2)
+
+    scale = 1000
+    e_ours = np.array(e_ours) * scale
+    e_shorthand = np.array(e_shorthand) * scale
+    e_builtin = np.array(e_builtin) * scale
+    e_builtin2 = np.array(e_builtin2) * scale
+    print(f"elapsed ours {np.mean(e_ours)} ({np.std(e_ours)}) "
+          f"ours shorthand {np.mean(e_shorthand)} ({np.std(e_shorthand)}) "
+          f"builtin {np.mean(e_builtin)} ({np.std(e_builtin)}) "
+          f"builtin2 {np.mean(e_builtin2)} ({np.std(e_builtin2)})")
+
+
 if __name__ == "__main__":
     test_index_2d()
     test_index_multi_d()
     test_set()
     test_value_2d()
+    test_performance()
