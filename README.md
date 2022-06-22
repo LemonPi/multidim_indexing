@@ -87,9 +87,9 @@ print(data[idx4[:, 0], idx4[:, 1], idx4[:, 2]])  # returns the 5 entries as desi
 ## How can it be improved?
 
 Most importantly, it may not be clear why simply doing `data[idx3]` does not work, and what the correct syntax is. So
-reading up to hear should resolve most questions about indexing with a batch of indices on a multidimensional tensor.
+reading up to here should resolve most questions about indexing with a batch of indices on a multidimensional tensor.
 This library provides `MultidimView` variants (torch and numpy) that provide a view for these tensors with features
-specialized to multidimensional tensor that caches some function value:
+specialized to multidimensional tensor that represent coordinate gridded values:
 
 - direct indexing so `data[idx3]` does what you want
 - optional indexing on values if you specify value ranges
