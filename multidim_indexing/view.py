@@ -11,6 +11,19 @@ class classproperty(object):
 
 class MultidimView(abc.ABC):
     def __init__(self, source, value_ranges=None, invalid_value=-1, check_safety=True):
+        """
+        View into a tensor or numpy array that is convenient to index using a batch of indices.
+        Intended for use on a cache of a function that needs to be indexed into with coordinates
+        rather than integer indices.
+
+        :param source: d dimensional underlying tensor or numpy array
+        :param value_ranges: d pairs of [min, max] coordinate keys for each of the d dimensions. It is an inclusive
+            range, so indexing with the boundary values of either min or max is valid
+        :param invalid_value: when check_safety is True, querying with out of range coordinates returns this value
+            rather than raising an error. Needs to be the same dtype as source
+        :param check_safety: whether to check if the keys are within bound; turn off to get about 40% speedup in
+            indexing
+        """
         self.dtype = source.dtype
         self.shape = source.shape
         self.dim = len(source.shape)
@@ -21,7 +34,8 @@ class MultidimView(abc.ABC):
             self._min = self.arr([range[0] for range in value_ranges])
             self._max = self.arr([range[1] for range in value_ranges])
             self._is_value_range = True
-            self._resolution = (self._max - self._min) / self.arr(self.shape)
+            # want an inclusive range on the min and max, so indexing with max should be valid
+            self._resolution = (self._max - self._min) / (self.arr(self.shape) - 1)
         else:
             self._min = self.lib.zeros(self.dim, dtype=self.lib.long)
             self._max = self.arr(source.shape, dtype=self.lib.long) - 1
@@ -91,7 +105,8 @@ class MultidimView(abc.ABC):
         # eliminate keys outside query
         if self.check_safety:
             valid = self.all(
-                self.lib.stack([(self._min[i] <= key[:, i]) & (key[:, i] <= self._max[i]) for i in range(self.dim)]), dim=0)
+                self.lib.stack([(self._min[i] <= key[:, i]) & (key[:, i] <= self._max[i]) for i in range(self.dim)]),
+                dim=0)
             key = key[valid]
         else:
             valid = True

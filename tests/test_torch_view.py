@@ -48,7 +48,7 @@ def test_value_2d():
     key_ravelled = torch.randint(high=high, size=(N,))
     index_key = view.unravel_index(key_ravelled, shape)
     # convert to value between 0 and 1
-    key = index_key / torch.tensor(shape)
+    key = index_key / (torch.tensor(shape) - 1)
 
     query = data_view[key]
     # since the values are just a range, the ravelled key is the queried value

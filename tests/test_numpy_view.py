@@ -47,7 +47,7 @@ def test_value_2d():
     key_ravelled = np.random.randint(0, high=high, size=(N,))
     index_key = np.stack(np.unravel_index(key_ravelled, shape)).T
     # convert to value between 0 and 1
-    key = index_key / np.array(shape)
+    key = index_key / (np.array(shape) - 1)
 
     query = data_view[key]
     # since the values are just a range, the ravelled key is the queried value
