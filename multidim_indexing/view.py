@@ -18,8 +18,8 @@ class MultidimView(abc.ABC):
         self.check_safety = check_safety
 
         if value_ranges is not None:
-            self._min = self.arr([range[0] for range in value_ranges], dtype=self.dtype)
-            self._max = self.arr([range[1] for range in value_ranges], dtype=self.dtype)
+            self._min = self.arr([range[0] for range in value_ranges])
+            self._max = self.arr([range[1] for range in value_ranges])
             self._is_value_range = True
             self._resolution = (self._max - self._min) / self.arr(self.shape)
         else:
