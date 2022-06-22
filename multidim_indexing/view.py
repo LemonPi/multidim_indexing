@@ -64,6 +64,15 @@ class MultidimView(abc.ABC):
     def transpose(cls, arr):
         """Transpose dimensions 0 and 1"""
 
+    def ensure_index_key(self, key):
+        # convert key from value ranges to indices if necessary
+        if self._is_value_range:
+            index_key = self.transpose(self.lib.stack(
+                [self.cast(self.lib.round((key[:, i] - self._min[i]) / self._resolution[i]), self.lib.long) for i in
+                 range(self.dim)]))
+            key = index_key
+        return key
+
     def get_valid_ravel_indices(self, key):
         """
         Ravel a N x d key into a N length key of ravelled indices
@@ -86,13 +95,7 @@ class MultidimView(abc.ABC):
             key = key[valid]
         else:
             valid = True
-        # convert key from value ranges to indices if necessary
-        if self._is_value_range:
-            index_key = self.transpose(self.lib.stack(
-                [self.cast(self.lib.round((key[:, i] - self._min[i]) / self._resolution[i]), self.lib.long) for i in
-                 range(self.dim)]))
-            key = index_key
-
+        key = self.ensure_index_key(key)
         # flatten
         flat_key = self.ravel_multi_index(key, self.shape)
         return flat_key, valid
