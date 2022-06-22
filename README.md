@@ -134,16 +134,22 @@ value_key_per_batch = torch.tensor([[-3.5, 0.2],
                                     [3, 2]])
 # number of entries to query
 N = value_key_per_batch.shape[0]
+print(torch.arange(B, dtype=value_key_per_batch.dtype).reshape(B, 1, 1).repeat(1, N, 1).shape)
 # make the indices for all batches
 value_key_batch = torch.cat(
-    (torch.arange(B, dtype=value_key_per_batch.dtype).repeat_interleave(N).view(-1, 1),
-     value_key_per_batch.repeat(B, 1)), dim=1)
-print(value_key_batch.shape)  # (B * N, 3)
+    (torch.arange(B, dtype=value_key_per_batch.dtype).reshape(B, 1, 1).repeat(1, N, 1),
+     value_key_per_batch.repeat(B, 1, 1)), dim=-1)
+# keys can have an additional batch indices at the front
+print(value_key_batch.shape)  # (B, N, 3)
 # these 2 should be the same apart from the first batch index
 print(value_key_batch[0:N])
-print(value_key_batch[12 * N:13 * N])
+print(value_key_batch[12*N:13*N])
+
 # should see some -1 to indicate invalid value
 print(data_batch[value_key_batch]) 
+
+# also there is a shorthand for directly using the per batch indices
+print(data_batch[value_key_per_batch.repeat(B,1,1)]) # should be the same as above
 ```
 
 ```python
