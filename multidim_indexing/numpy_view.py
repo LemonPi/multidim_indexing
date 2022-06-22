@@ -24,8 +24,20 @@ class NumpyMultidimView(MultidimView):
 
     @classmethod
     def ravel_multi_index(cls, key, shape):
-        return np.ravel_multi_index(tuple(key.T), shape)
+        if len(key.shape) == 2:
+            key = key.T
+        elif len(key.shape) == 3:
+            key = key.transpose((1, 2, 0))
+        return np.ravel_multi_index(tuple(key), shape)
 
     @classmethod
     def transpose(cls, arr):
         return np.transpose(arr)
+
+    @classmethod
+    def repeat(cls, arr, repeats):
+        return np.tile(arr, repeats)
+
+    @classmethod
+    def cat(cls, arrs, dim=0):
+        return np.concatenate(arrs, axis=dim)

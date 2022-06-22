@@ -35,6 +35,14 @@ class TorchMultidimView(MultidimView):
     def transpose(cls, arr):
         return arr.transpose(0, 1)
 
+    @classmethod
+    def repeat(cls, arr, repeats):
+        return arr.repeat(*repeats)
+
+    @classmethod
+    def cat(cls, arrs, dim=0):
+        return torch.cat(arrs, dim=dim)
+
 
 # filling in functions from numpy from francois-rozet
 Shape = Union[List[int], Tuple[int, ...], torch.Size]

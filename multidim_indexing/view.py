@@ -78,6 +78,16 @@ class MultidimView(abc.ABC):
     def transpose(cls, arr):
         """Transpose dimensions 0 and 1"""
 
+    @classmethod
+    @abc.abstractmethod
+    def repeat(cls, arr, repeats):
+        """Repeat an array along its dimensions certain times"""
+
+    @classmethod
+    @abc.abstractmethod
+    def cat(cls, arrs, dim=0):
+        """Concatenate a sequence of arrays along a dimension"""
+
     def ensure_index_key(self, key):
         # convert key from value ranges to indices if necessary
         if self._is_value_range:
@@ -96,8 +106,8 @@ class MultidimView(abc.ABC):
         # check if shorthand is used where batch indices are not specified
         if key.shape[-1] == self.dim - 1:
             B = key.shape[0]
-            batch_index = self.lib.arange(B).reshape(B, 1, 1).repeat(1, key.shape[-2], 1)
-            key = self.lib.cat((batch_index, key), dim=-1)
+            batch_index = self.repeat(self.lib.arange(B).reshape(B, 1, 1), (1, key.shape[-2], 1))
+            key = self.cat((batch_index, key), dim=-1)
 
         # flatten batch dimensions
         key = key.reshape(-1, key.shape[-1])

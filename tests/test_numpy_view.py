@@ -94,7 +94,7 @@ def test_performance():
     dx = 2
     N = 512
     shape = (B, 64, 64)
-    high = np.prod(np.array(shape)).astype(dtype=np.long)
+    high = np.prod(np.array(shape)).astype(dtype=int)
     data = np.arange(0, high).reshape(shape)
 
     runs = 1000
@@ -110,8 +110,9 @@ def test_performance():
         for i in range(B):
             key[0, i, :] = i
         key_ravelled = np.ravel_multi_index(key, shape)
+        key = key.transpose((1, 2, 0))
 
-        key_builtin = key.transpose((1, 2, 0))[:, :, 1:]
+        key_builtin = key[:, :, 1:]
         start = time.time()
         nb = np.arange(B).reshape(-1, 1)
         idxs = np.array_split(key_builtin, key_builtin.shape[-1], axis=-1)
