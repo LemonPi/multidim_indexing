@@ -76,12 +76,13 @@ Directly indexing the tensor with a multidimensional index does not do what you 
 print(data[idx3])  # results in an error
 ```
 
-Instead, **split up the indices by their dimension**
+Instead, **split up the indices by their dimension** either manually, or with `torch.unbind`
 
 ```python
 # easier to convert it to something that allows column indexing first
 idx4 = torch.tensor(idx3)
 print(data[idx4[:, 0], idx4[:, 1], idx4[:, 2]])  # returns the 5 entries as desired
+print(data[torch.unbind(idx4, -1)])              # can also use unbind
 ```
 
 ## How can it be improved?
