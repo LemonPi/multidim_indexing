@@ -97,6 +97,11 @@ class MultidimView(abc.ABC):
             key = index_key
         return key
 
+    def get_valid_values(self, key):
+        return self.all(
+            self.lib.stack([(self._min[i] <= key[..., i]) & (key[..., i] <= self._max[i]) for i in range(self.dim)]),
+            dim=0)
+
     def get_valid_ravel_indices(self, key):
         """
         Ravel a N x d key into a N length key of ravelled indices
@@ -114,9 +119,7 @@ class MultidimView(abc.ABC):
 
         # eliminate keys outside query
         if self.check_safety:
-            valid = self.all(
-                self.lib.stack([(self._min[i] <= key[:, i]) & (key[:, i] <= self._max[i]) for i in range(self.dim)]),
-                dim=0)
+            valid = self.get_valid_values(key)
             key = key[valid]
         else:
             valid = True
