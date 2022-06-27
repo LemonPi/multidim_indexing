@@ -139,8 +139,13 @@ class MultidimView(abc.ABC):
         flat_key, valid = self.get_valid_ravel_indices(key)
         if self.check_safety:
             N = valid.shape[0]
-            res = self.lib.ones(N, dtype=self.dtype) * self.invalid_value
+            res = self.lib.zeros(N, dtype=self.dtype)
             res[valid] = self._d[flat_key]
+            if callable(self.invalid_value):
+                invalid_entries = ~valid.reshape(key.shape[:-1])
+                res[~valid] = self.invalid_value(key[invalid_entries])
+            else:
+                res[~valid] = self.invalid_value
         else:
             res = self._d[flat_key]
 
