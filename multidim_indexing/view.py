@@ -90,11 +90,19 @@ class MultidimView(abc.ABC):
 
     def ensure_index_key(self, key):
         # convert key from value ranges to indices if necessary
-        if self._is_value_range:
+        if self._is_value_range and key.dtype != self.lib.long:
             index_key = self.transpose(self.lib.stack(
                 [self.cast(self.lib.round((key[:, i] - self._min[i]) / self._resolution[i]), self.lib.long) for i in
                  range(self.dim)]))
             key = index_key
+        return key
+
+    def ensure_value_key(self, key):
+        # convert key from indices to value ranges if necessary
+        if self._is_value_range and key.dtype != self.dtype:
+            value_key = self.transpose(self.lib.stack(
+                [self.cast(key[:, i] * self._resolution[i] + self._min[i], self.dtype) for i in range(self.dim)]))
+            key = value_key
         return key
 
     def get_valid_values(self, key):

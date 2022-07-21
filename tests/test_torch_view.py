@@ -168,9 +168,35 @@ def test_performance():
           f"builtin2 {np.mean(e_builtin2)} ({np.std(e_builtin2)})")
 
 
+def test_key_conversion():
+    high = 10000
+    N = 15
+    shape = (5, 10, 20, 10)
+    data = torch.arange(0, high).reshape(shape)
+    data_view = view.TorchMultidimView(data.to(dtype=torch.float), value_ranges=[(0, 1), (0, 1), (-5, 5), (0, 10)])
+    key_ravelled = torch.randint(high=high, size=(N,))
+    key = view.unravel_index(key_ravelled, shape)
+
+    value_key = data_view.ensure_value_key(key)
+    value_2_key = data_view.ensure_value_key(value_key)
+    index_key = data_view.ensure_index_key(value_key)
+    index_2_key = data_view.ensure_index_key(index_key)
+
+    assert torch.allclose(key, index_key)
+    assert torch.allclose(value_key, value_2_key)
+    assert torch.allclose(index_key, index_2_key)
+
+    value_key = torch.randn((N, len(shape)), dtype=torch.float)
+    index_key = data_view.ensure_index_key(value_key)
+    value_2_key = data_view.ensure_value_key(index_key)
+    for i in range(len(shape)):
+        assert torch.all(torch.abs(value_key[:, i] - value_2_key[:, i]) < data_view._resolution[i])
+
+
 if __name__ == "__main__":
     test_index_2d()
     test_index_multi_d()
     test_set()
     test_value_2d()
     test_performance()
+    test_key_conversion()
