@@ -96,7 +96,12 @@ class MultidimView(abc.ABC):
     def cat(cls, arrs, dim=0):
         """Concatenate a sequence of arrays along a dimension"""
 
+    def is_key_ravelled(self, key):
+        return len(key.shape) == 1 or (key.shape[1] == 1 and self.dim != 1)
+
     def ensure_index_key(self, key):
+        if self.is_key_ravelled(key):
+            key = self.unravel_key(key.reshape(-1))
         # convert key from value ranges to indices if necessary
         if self._is_value_range and key.dtype != self.lib.long:
             index_key = self.transpose(self.lib.stack(
@@ -106,6 +111,8 @@ class MultidimView(abc.ABC):
         return key
 
     def ensure_value_key(self, key):
+        if self.is_key_ravelled(key):
+            key = self.unravel_key(key.reshape(-1))
         # convert key from indices to value ranges if necessary
         if self._is_value_range and key.dtype != self.dtype:
             value_key = self.transpose(self.lib.stack(
@@ -143,7 +150,6 @@ class MultidimView(abc.ABC):
         # flatten
         flat_key = self.ravel_multi_index(key, self.shape)
         return flat_key, valid
-
 
     def __getitem__(self, key):
         """
