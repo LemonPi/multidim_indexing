@@ -44,6 +44,10 @@ class MultidimView(abc.ABC):
         # flattened view of the source data
         self._d = source.reshape(-1)
 
+    @property
+    def raw_data(self):
+        return self._d
+
     @classproperty
     @abc.abstractmethod
     def lib(cls):
