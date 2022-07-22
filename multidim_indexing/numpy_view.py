@@ -30,6 +30,9 @@ class NumpyMultidimView(MultidimView):
             key = key.transpose((1, 2, 0))
         return np.ravel_multi_index(tuple(key), shape)
 
+    def unravel_key(self, key):
+        return np.stack(np.unravel_index(key, self.shape)).T
+
     @classmethod
     def transpose(cls, arr):
         return np.transpose(arr)

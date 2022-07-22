@@ -11,7 +11,7 @@ def test_index_2d():
     data = torch.arange(0, high).reshape(shape)
     data_view = view.TorchMultidimView(data)
     key_ravelled = torch.randint(high=high, size=(N,))
-    key = view.unravel_index(key_ravelled, shape)
+    key = data_view.unravel_key(key_ravelled)
 
     query = data_view[key]
     # since the values are just a range, the ravelled key is the queried value
@@ -32,7 +32,7 @@ def test_index_multi_d():
     data = torch.arange(0, high).reshape(shape)
     data_view = view.TorchMultidimView(data)
     key_ravelled = torch.randint(high=high, size=(N,))
-    key = view.unravel_index(key_ravelled, shape)
+    key = data_view.unravel_key(key_ravelled)
 
     query = data_view[key]
     # since the values are just a range, the ravelled key is the queried value
@@ -46,7 +46,7 @@ def test_value_2d():
     data = torch.arange(0, high).reshape(shape)
     data_view = view.TorchMultidimView(data, value_ranges=[(0, 1), (0, 1)])
     key_ravelled = torch.randint(high=high, size=(N,))
-    index_key = view.unravel_index(key_ravelled, shape)
+    index_key = data_view.unravel_key(key_ravelled)
     # convert to value between 0 and 1
     key = index_key / (torch.tensor(shape) - 1)
 
@@ -70,7 +70,7 @@ def test_set():
     data_view = view.TorchMultidimView(data)
     # having repeating indices results in undefined behavior
     key_ravelled = torch.randperm(high)[:N]
-    key = view.unravel_index(key_ravelled, shape)
+    key = data_view.unravel_key(key_ravelled)
 
     data_view[key] = -5
     # test that we changed the original data
@@ -175,7 +175,7 @@ def test_key_conversion():
     data = torch.arange(0, high).reshape(shape)
     data_view = view.TorchMultidimView(data.to(dtype=torch.float), value_ranges=[(0, 1), (0, 1), (-5, 5), (0, 10)])
     key_ravelled = torch.randint(high=high, size=(N,))
-    key = view.unravel_index(key_ravelled, shape)
+    key = data_view.unravel_key(key_ravelled)
 
     value_key = data_view.ensure_value_key(key)
     value_2_key = data_view.ensure_value_key(value_key)
@@ -193,6 +193,19 @@ def test_key_conversion():
         assert torch.all(torch.abs(value_key[:, i] - value_2_key[:, i]) < data_view._resolution[i])
 
 
+def test_ravel():
+    high = 10000
+    N = 15
+    shape = (5, 10, 20, 10)
+    data = torch.arange(0, high).reshape(shape)
+    data_view = view.TorchMultidimView(data.to(dtype=torch.float))
+    key_ravelled = torch.randint(high=high, size=(N,))
+    key = data_view.unravel_key(key_ravelled)
+    key_rereavelled = data_view.ravel_multi_index(key, shape)
+
+    assert torch.allclose(key_ravelled, key_rereavelled)
+
+
 if __name__ == "__main__":
     test_index_2d()
     test_index_multi_d()
@@ -200,3 +213,4 @@ if __name__ == "__main__":
     test_value_2d()
     test_performance()
     test_key_conversion()
+    test_ravel()

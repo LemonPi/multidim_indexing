@@ -75,7 +75,11 @@ class MultidimView(abc.ABC):
     @classmethod
     @abc.abstractmethod
     def ravel_multi_index(cls, key, shape):
-        """flatten keys from N x d to N"""
+        """Flatten keys from N x d to N"""
+
+    @abc.abstractmethod
+    def unravel_key(self, key):
+        """Expand keys from N to N x d"""
 
     @classmethod
     @abc.abstractmethod
@@ -139,6 +143,7 @@ class MultidimView(abc.ABC):
         # flatten
         flat_key = self.ravel_multi_index(key, self.shape)
         return flat_key, valid
+
 
     def __getitem__(self, key):
         """

@@ -31,6 +31,9 @@ class TorchMultidimView(MultidimView):
     def ravel_multi_index(cls, key, shape):
         return ravel_multi_index(key, shape)
 
+    def unravel_key(self, key):
+        return unravel_index(key, self.shape)
+
     @classmethod
     def transpose(cls, arr):
         return arr.transpose(0, 1)
