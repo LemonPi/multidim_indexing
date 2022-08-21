@@ -44,14 +44,14 @@ class MultidimView(abc.ABC):
         # flattened view of the source data
         self._d = source.reshape(-1)
 
-    @property
-    def raw_data(self):
-        return self._d
-
     @classproperty
     @abc.abstractmethod
     def lib(cls):
         """Tensor/array library e.g. numpy and torch"""
+
+    @property
+    def raw_data(self):
+        return self._d
 
     @abc.abstractmethod
     def arr(self, *args, **kwargs):
@@ -162,7 +162,7 @@ class MultidimView(abc.ABC):
         flat_key, valid = self.get_valid_ravel_indices(key)
         if self.check_safety:
             N = valid.shape[0]
-            res = self.lib.zeros(N, dtype=self.dtype)
+            res = self.lib.zeros(N, dtype=self.dtype, device=self.device)
             res[valid] = self._d[flat_key]
             if callable(self.invalid_value):
                 invalid_entries = ~valid.reshape(key.shape[:-1])
