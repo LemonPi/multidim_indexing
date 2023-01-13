@@ -37,8 +37,8 @@ class MultidimView(abc.ABC):
             # want an inclusive range on the min and max, so indexing with max should be valid
             self._resolution = (self._max - self._min) / (self.arr(self.shape) - 1)
         else:
-            self._min = self.lib.zeros(self.dim, dtype=self.lib.long)
-            self._max = self.arr(source.shape, dtype=self.lib.long) - 1
+            self._min = self.lib.zeros(self.dim, dtype=self.int)
+            self._max = self.arr(source.shape, dtype=self.int) - 1
             self._is_value_range = False
 
         # flattened view of the source data
@@ -50,12 +50,21 @@ class MultidimView(abc.ABC):
         """Tensor/array library e.g. numpy and torch"""
 
     @property
+    @abc.abstractmethod
+    def int(self):
+        """Return the integer type"""
+
+    @property
     def raw_data(self):
         return self._d
 
     @abc.abstractmethod
     def arr(self, *args, **kwargs):
         """Create an array"""
+
+    @abc.abstractmethod
+    def zeros(self, *args, **kwargs):
+        """Create a zero array"""
 
     @classmethod
     @abc.abstractmethod
@@ -103,9 +112,9 @@ class MultidimView(abc.ABC):
         if self.is_key_ravelled(key):
             key = self.unravel_key(key.reshape(-1))
         # convert key from value ranges to indices if necessary
-        if self._is_value_range and (force or key.dtype != self.lib.long):
+        if self._is_value_range and (force or key.dtype != self.int):
             index_key = self.transpose(self.lib.stack(
-                [self.cast(self.lib.round((key[:, i] - self._min[i]) / self._resolution[i]), self.lib.long) for i in
+                [self.cast(self.lib.round((key[:, i] - self._min[i]) / self._resolution[i]), self.int) for i in
                  range(self.dim)]))
             key = index_key
         return key
@@ -162,7 +171,7 @@ class MultidimView(abc.ABC):
         flat_key, valid = self.get_valid_ravel_indices(key)
         if self.check_safety:
             N = valid.shape[0]
-            res = self.lib.zeros(N, dtype=self.dtype, device=self.device)
+            res = self.zeros(N, dtype=self.dtype)
             res[valid] = self._d[flat_key]
             if callable(self.invalid_value):
                 invalid_entries = ~valid.reshape(key.shape[:-1])

@@ -7,8 +7,15 @@ class NumpyMultidimView(MultidimView):
     def lib(cls):
         return np
 
+    @property
+    def int(self):
+        return int
+
     def arr(self, *args, **kwargs):
         return np.array(*args, **kwargs)
+
+    def zeros(self, *args, **kwargs):
+        return np.zeros(*args, **kwargs)
 
     @classmethod
     def cast(cls, arr, dtype):

@@ -12,8 +12,15 @@ class TorchMultidimView(MultidimView):
     def lib(cls):
         return torch
 
+    @property
+    def int(self):
+        return torch.long
+
     def arr(self, *args, **kwargs):
         return torch.tensor(*args, device=self.device, **kwargs)
+
+    def zeros(self, *args, **kwargs):
+        return torch.zeros(*args, device=self.device, **kwargs)
 
     @classmethod
     def cast(cls, arr, dtype):
