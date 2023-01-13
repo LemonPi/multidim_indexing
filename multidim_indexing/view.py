@@ -99,22 +99,22 @@ class MultidimView(abc.ABC):
     def is_key_ravelled(self, key):
         return len(key.shape) == 1 or (key.shape[1] == 1 and self.dim != 1)
 
-    def ensure_index_key(self, key):
+    def ensure_index_key(self, key, force=False):
         if self.is_key_ravelled(key):
             key = self.unravel_key(key.reshape(-1))
         # convert key from value ranges to indices if necessary
-        if self._is_value_range and key.dtype != self.lib.long:
+        if self._is_value_range and (force or key.dtype != self.lib.long):
             index_key = self.transpose(self.lib.stack(
                 [self.cast(self.lib.round((key[:, i] - self._min[i]) / self._resolution[i]), self.lib.long) for i in
                  range(self.dim)]))
             key = index_key
         return key
 
-    def ensure_value_key(self, key):
+    def ensure_value_key(self, key, force=False):
         if self.is_key_ravelled(key):
             key = self.unravel_key(key.reshape(-1))
         # convert key from indices to value ranges if necessary
-        if self._is_value_range and key.dtype != self.dtype:
+        if self._is_value_range and (force or key.dtype != self.dtype):
             value_key = self.transpose(self.lib.stack(
                 [self.cast(key[:, i] * self._resolution[i] + self._min[i], self.dtype) for i in range(self.dim)]))
             key = value_key
