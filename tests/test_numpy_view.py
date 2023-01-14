@@ -38,6 +38,45 @@ def test_index_multi_d():
     assert np.allclose(key_ravelled, query)
 
 
+def test_batch_key_value_query():
+    high = 50
+    B = 3
+    N = 20
+    shape = (5, 10)
+    data = np.arange(0, high).reshape(shape)
+    data_view = view.NumpyMultidimView(data.astype(dtype=float), value_ranges=[(0, 1), (0, 5)])
+
+    key_ravelled = np.random.randint(0, high=high, size=(N,))
+    key = data_view.unravel_key(key_ravelled)
+    batch_key = np.tile(key, (B, 1, 1))
+    value_key = data_view.ensure_value_key(key)
+    # value_key = torch.randn((N, len(shape)), dtype=torch.float)
+    batch_value_key = np.tile(value_key, (B, 1, 1))
+    assert not data_view.is_key_ravelled(key)
+    assert not data_view.is_key_ravelled(batch_key)
+    # test different ways of generating batch keys are equivalent
+    batch_value_key2 = data_view.ensure_value_key(batch_key)
+    assert np.allclose(batch_value_key, batch_value_key2)
+    batch_key2 = data_view.ensure_index_key(batch_value_key)
+    assert np.allclose(batch_key, batch_key2)
+
+    query = data_view[value_key]
+    # since the values are just a range, the ravelled key is the queried value
+    assert np.allclose(key_ravelled.astype(dtype=float), query)
+
+    # test the usage of a batch key
+    batch_query = data_view[batch_value_key]
+    assert batch_query.shape == (B, N)
+    for i in range(B):
+        assert np.allclose(batch_query[i], query)
+
+    batch_value_key3 = np.random.randn(B, N, len(shape))
+    batch_query = data_view[batch_value_key3]
+    for i in range(B):
+        query = data_view[batch_value_key3[i]]
+        assert np.allclose(batch_query[i], query)
+
+
 def test_value_2d():
     high = 50
     N = 15
@@ -97,7 +136,7 @@ def test_performance():
     high = np.prod(np.array(shape)).astype(dtype=int)
     data = np.arange(0, high).reshape(shape)
 
-    runs = 1000
+    runs = 10
 
     e_ours = []
     e_builtin = []

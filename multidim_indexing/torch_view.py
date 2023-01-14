@@ -53,6 +53,9 @@ class TorchMultidimView(MultidimView):
     def cat(cls, arrs, dim=0):
         return torch.cat(arrs, dim=dim)
 
+    @classmethod
+    def stack(cls, arrs, dim=0):
+        return torch.stack(arrs, dim=dim)
 
 # filling in functions from numpy from francois-rozet
 Shape = Union[List[int], Tuple[int, ...], torch.Size]

@@ -51,3 +51,7 @@ class NumpyMultidimView(MultidimView):
     @classmethod
     def cat(cls, arrs, dim=0):
         return np.concatenate(arrs, axis=dim)
+
+    @classmethod
+    def stack(cls, arrs, dim=0):
+        return np.stack(arrs, axis=dim)

@@ -105,6 +105,11 @@ class MultidimView(abc.ABC):
     def cat(cls, arrs, dim=0):
         """Concatenate a sequence of arrays along a dimension"""
 
+    @classmethod
+    @abc.abstractmethod
+    def stack(cls, arrs, dim=0):
+        """Stack arrs along a newly created, specified dimension"""
+
     def is_key_ravelled(self, key):
         return len(key.shape) == 1 or (key.shape[1] == 1 and self.dim != 1)
 
@@ -113,9 +118,10 @@ class MultidimView(abc.ABC):
             key = self.unravel_key(key.reshape(-1))
         # convert key from value ranges to indices if necessary
         if self._is_value_range and (force or key.dtype != self.int):
-            index_key = self.transpose(self.lib.stack(
-                [self.cast(self.lib.round((key[:, i] - self._min[i]) / self._resolution[i]), self.int) for i in
-                 range(self.dim)]))
+            index_key = self.stack(
+                [self.cast(self.lib.round((key[..., i] - self._min[i]) / self._resolution[i]), self.int) for i in
+                 range(self.dim)],
+                dim=-1)
             key = index_key
         return key
 
@@ -124,14 +130,15 @@ class MultidimView(abc.ABC):
             key = self.unravel_key(key.reshape(-1))
         # convert key from indices to value ranges if necessary
         if self._is_value_range and (force or key.dtype != self.dtype):
-            value_key = self.transpose(self.lib.stack(
-                [self.cast(key[:, i] * self._resolution[i] + self._min[i], self.dtype) for i in range(self.dim)]))
+            value_key = self.stack(
+                [self.cast(key[..., i] * self._resolution[i] + self._min[i], self.dtype) for i in range(self.dim)],
+                dim=-1)
             key = value_key
         return key
 
     def get_valid_values(self, key):
         return self.all(
-            self.lib.stack([(self._min[i] <= key[..., i]) & (key[..., i] <= self._max[i]) for i in range(self.dim)]),
+            self.stack([(self._min[i] <= key[..., i]) & (key[..., i] <= self._max[i]) for i in range(self.dim)]),
             dim=0)
 
     def get_valid_ravel_indices(self, key):
