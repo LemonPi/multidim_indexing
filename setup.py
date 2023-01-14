@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name='multidim-indexing',
-    version='0.7.0',
+    version='0.8.0',
     packages=find_packages(),
     url='',
     license='',
