@@ -111,7 +111,7 @@ class MultidimView(abc.ABC):
         """Stack arrs along a newly created, specified dimension"""
 
     def is_key_ravelled(self, key):
-        return len(key.shape) == 1 or (key.shape[1] == 1 and self.dim != 1)
+        return len(key.shape) == 1 or (key.shape[-1] == 1 and self.dim != 1)
 
     def ensure_index_key(self, key, force=False):
         if self.is_key_ravelled(key):
