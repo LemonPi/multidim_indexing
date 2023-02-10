@@ -98,10 +98,22 @@ specialized to multidimensional tensor that represent coordinate gridded values:
 - optional safety checking for out of bound values or indices
     - provide default value for out of bound queries instead of throwing an exception
 
+## Installation
+numpy only
+```shell
+pip install multidim-indexing[numpy]
+```
+pytorch only
+```shell
+pip install multidim-indexing[torch]
+```
+all
+```shell
+pip install multidim-indexing[all]
+```
 ## Usage
 
-First install by cloning this repository and `pip install -e .` at the project root. Continuing with `data` and the
-indices described before,
+Continuing with `data` and the indices described before,
 
 ```python
 from multidim_indexing import torch_view as view
