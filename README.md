@@ -129,6 +129,11 @@ data_batch = view.TorchMultidimView(data, value_ranges=[[0, B], [-5, 5], [0, 10]
 # another view into the data, treating it as a 3D grid data with X in [-2.5, 5], Y in [0, 4], and Z in [0, 10]
 data_3d = view.TorchMultidimView(data, value_ranges=[[-2.5, 5], [0, 4], [0, 10]])
 ```
+By default, the nearest grid value is returned. You can instead use linear interpolation like scipy's interpn by setting
+`method='linear'` in the constructor.
+```python
+data_3d = view.TorchMultidimView(data, value_ranges=[[-2.5, 5], [0, 4], [0, 10]], method='linear')
+```
 
 We can then use them like:
 
