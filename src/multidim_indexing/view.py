@@ -1,4 +1,5 @@
 import abc
+import itertools
 
 
 class classproperty(object):
@@ -10,29 +11,31 @@ class classproperty(object):
 
 
 class MultidimView(abc.ABC):
-    def __init__(self, source, value_ranges=None, invalid_value=-1, check_safety=True):
+    def __init__(self, source, value_ranges=None, invalid_value=-1, check_safety=True, method='nearest'):
         """
         View into a tensor or numpy array that is convenient to index using a batch of indices.
         Intended for use on a cache of a function that needs to be indexed into with coordinates
         rather than integer indices.
 
         :param source: d dimensional underlying tensor or numpy array
-        :param value_ranges: d pairs of [min, max] coordinate keys for each of the d dimensions. It is an inclusive
-            range, so indexing with the boundary values of either min or max is valid
+        :param value_ranges: d pairs of [min, max] (or an otherwise sequence) coordinate keys for each of the
+            d dimensions. It is an inclusive range, so indexing with the boundary values of either min or max is valid
         :param invalid_value: when check_safety is True, querying with out of range coordinates returns this value
             rather than raising an error. Needs to be the same dtype as source
         :param check_safety: whether to check if the keys are within bound; turn off to get about 40% speedup in
             indexing
+        :param method: interpolation method when querying with value ranges, can be 'nearest' or 'linear'
         """
         self.dtype = source.dtype
         self.shape = source.shape
         self.dim = len(source.shape)
         self.invalid_value = invalid_value
         self.check_safety = check_safety
+        self.method = method
 
         if value_ranges is not None:
-            self._min = self.arr([range[0] for range in value_ranges])
-            self._max = self.arr([range[1] for range in value_ranges])
+            self._min = self.arr([min(range) for range in value_ranges])
+            self._max = self.arr([max(range) for range in value_ranges])
             self._is_value_range = True
             # want an inclusive range on the min and max, so indexing with max should be valid
             self._resolution = (self._max - self._min) / (self.arr(self.shape) - 1)
@@ -141,12 +144,8 @@ class MultidimView(abc.ABC):
             self.stack([(self._min[i] <= key[..., i]) & (key[..., i] <= self._max[i]) for i in range(self.dim)]),
             dim=0)
 
-    def get_valid_ravel_indices(self, key):
-        """
-        Ravel a N x d key into a N length key of ravelled indices
-        :param key: N x d key (could be values or indices depending on underlying data)
-        :return: ravelled indices of length N along with boolean validity mask of length N
-        """
+    def _check_and_flatten_key(self, key):
+        """Flatten batch dimensions of key to ensure it is N x d"""
         # check if shorthand is used where batch indices are not specified
         if key.shape[-1] == self.dim - 1:
             B = key.shape[0]
@@ -155,6 +154,15 @@ class MultidimView(abc.ABC):
 
         # flatten batch dimensions
         key = key.reshape(-1, key.shape[-1])
+        return key
+
+    def get_valid_ravel_indices(self, key):
+        """
+        Ravel a N x d key into a N length key of ravelled indices
+        :param key: N x d key (could be values or indices depending on underlying data)
+        :return: ravelled indices of length N along with boolean validity mask of length N
+        """
+        key = self._check_and_flatten_key(key)
 
         # eliminate keys outside query
         if self.check_safety:
@@ -175,18 +183,57 @@ class MultidimView(abc.ABC):
         """
         orig_key_shape = key.shape
 
-        flat_key, valid = self.get_valid_ravel_indices(key)
-        if self.check_safety:
-            N = valid.shape[0]
-            res = self.zeros(N, dtype=self.dtype)
-            res[valid] = self._d[flat_key]
-            if callable(self.invalid_value):
-                invalid_entries = ~valid.reshape(key.shape[:-1])
-                res[~valid] = self.invalid_value(key[invalid_entries])
+        if self.method == 'nearest' or not self._is_value_range:
+            flat_key, valid = self.get_valid_ravel_indices(key)
+            if self.check_safety:
+                N = valid.shape[0]
+                res = self.zeros(N, dtype=self.dtype)
+                res[valid] = self._d[flat_key]
+                if callable(self.invalid_value):
+                    invalid_entries = ~valid.reshape(key.shape[:-1])
+                    res[~valid] = self.invalid_value(key[invalid_entries])
+                else:
+                    res[~valid] = self.invalid_value
             else:
-                res[~valid] = self.invalid_value
+                res = self._d[flat_key]
+        elif self.method == 'linear':
+            key = self._check_and_flatten_key(key)
+            # eliminate keys outside query
+            if self.check_safety:
+                valid = self.get_valid_values(key)
+                key = key[valid]
+            else:
+                valid = True
+            idx_raw = self.stack([(key[..., i] - self._min[i]) / self._resolution[i] for i in range(self.dim)], dim=-1)
+            idx_left = self.cast(self.lib.floor(idx_raw), self.int)
+            idx_right = idx_left + 1
+            idxs = list(zip(idx_left.T, idx_right.T))
+
+            dists_left = idx_raw - idx_left
+            dists_right = 1 - dists_left
+            dists = list(zip(dists_left.T, dists_right.T))
+
+            # iterate over the vertices of a hypercube
+            values = 0
+            for indexer in itertools.product([0, 1], repeat=self.dim):
+                this_idx = [idx[onoff] for onoff, idx in zip(indexer, idxs)]
+                flat_idx = self.ravel_multi_index(self.stack(this_idx, dim=-1), self.shape)
+                deltas = [dist[1 - onoff] for onoff, dist in zip(indexer, dists)]
+                values = values + self._d[flat_idx] * self.lib.prod(self.stack(deltas), dim=0)
+
+            if self.check_safety:
+                N = valid.shape[0]
+                res = self.zeros(N, dtype=self.dtype)
+                res[valid] = values
+                if callable(self.invalid_value):
+                    invalid_entries = ~valid.reshape(idx_raw.shape[:-1])
+                    res[~valid] = self.invalid_value(idx_raw[invalid_entries])
+                else:
+                    res[~valid] = self.invalid_value
+            else:
+                res = values
         else:
-            res = self._d[flat_key]
+            raise NotImplementedError('method {} not implemented'.format(self.method))
 
         return res.reshape(list(orig_key_shape[:-2]) + [-1])
 

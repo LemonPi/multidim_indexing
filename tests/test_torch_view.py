@@ -245,6 +245,27 @@ def test_ravel():
     assert torch.allclose(key_ravelled, key_rereavelled)
 
 
+def test_interpolation():
+    from scipy.interpolate import interpn
+    def value_func_3d(x, y, z):
+        return 2 * x + 3 * y - z
+
+    x = np.linspace(0, 4, 5)
+    y = np.linspace(0, 5, 6)
+    z = np.linspace(0, 6, 7)
+    points = (x, y, z)
+    values = value_func_3d(*np.meshgrid(*points, indexing='ij'))
+    # randomly generate query points within the range
+    N = 1000
+    query = np.random.rand(N, 3) * np.array([4, 5, 6])
+    gt = interpn(points, values, query, method='linear')
+
+    m = view.TorchMultidimView(torch.tensor(values), [x, y, z], invalid_value=0, method='linear')
+    v = m[torch.tensor(query)]
+
+    assert torch.allclose(torch.tensor(gt), v)
+
+
 if __name__ == "__main__":
     test_index_2d()
     test_index_multi_d()
@@ -253,3 +274,4 @@ if __name__ == "__main__":
     test_performance()
     test_key_conversion()
     test_ravel()
+    test_interpolation()
