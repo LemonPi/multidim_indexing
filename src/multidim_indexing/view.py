@@ -198,18 +198,20 @@ class MultidimView(abc.ABC):
                 res = self._d[flat_key]
         elif self.method == 'linear':
             key = self._check_and_flatten_key(key)
-            # eliminate keys outside query
-            if self.check_safety:
-                valid = self.get_valid_values(key)
-                key = key[valid]
-            else:
-                valid = True
             idx_raw = self.stack([(key[..., i] - self._min[i]) / self._resolution[i] for i in range(self.dim)], dim=-1)
             idx_left = self.cast(self.lib.floor(idx_raw), self.int)
             idx_right = idx_left + 1
+
+            # check validity directly on the bounds of the indices
+            a = self.lib.logical_and(idx_left >= 0, idx_left < self.arr(self.shape, dtype=self.int))
+            b = self.lib.logical_and(idx_right >= 0, idx_right < self.arr(self.shape, dtype=self.int))
+            valid = self.all(a & b, dim=-1)
+            idx_left = idx_left[valid]
+            idx_right = idx_right[valid]
+
             idxs = list(zip(idx_left.T, idx_right.T))
 
-            dists_left = idx_raw - idx_left
+            dists_left = idx_raw[valid] - idx_left
             dists_right = 1 - dists_left
             dists = list(zip(dists_left.T, dists_right.T))
 
