@@ -41,7 +41,13 @@ class MultidimView(abc.ABC):
             self._max = self.arr([max(range) for range in value_ranges])
             self._is_value_range = True
             # want an inclusive range on the min and max, so indexing with max should be valid
-            self._resolution = (self._max - self._min) / (self.arr(self.shape) - 1)
+            shape = self.arr(self.shape)
+            self._resolution = (self._max - self._min) / (shape - 1)
+            # if some dim of shape is 1, then resolution for it is undefined
+            valid_resolution = self._resolution[~self._resolution.isnan()]
+            if len(valid_resolution) > 0:
+                # we assume that it'll have the same resolution as the first non-1 dim
+                self._resolution[shape == 1] = valid_resolution[0]
         else:
             self._min = self.lib.zeros(self.dim, dtype=self.int)
             self._max = self.arr(source.shape, dtype=self.int) - 1
