@@ -9,6 +9,10 @@ class TorchMultidimView(MultidimView):
         super(TorchMultidimView, self).__init__(source, *args, **kwargs)
 
     @classproperty
+    def default_coordinate_dtype(cls):
+        return torch.float32
+
+    @classproperty
     def lib(cls):
         return torch
 
@@ -56,6 +60,7 @@ class TorchMultidimView(MultidimView):
     @classmethod
     def stack(cls, arrs, dim=0):
         return torch.stack(arrs, dim=dim)
+
 
 # filling in functions from numpy from francois-rozet
 Shape = Union[List[int], Tuple[int, ...], torch.Size]

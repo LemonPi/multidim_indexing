@@ -4,6 +4,10 @@ import numpy as np
 
 class NumpyMultidimView(MultidimView):
     @classproperty
+    def default_coordinate_dtype(cls):
+        return float
+
+    @classproperty
     def lib(cls):
         return np
 

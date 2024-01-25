@@ -11,7 +11,8 @@ class classproperty(object):
 
 
 class MultidimView(abc.ABC):
-    def __init__(self, source, value_ranges=None, invalid_value=-1, check_safety=True, method='nearest'):
+    def __init__(self, source, value_ranges=None, invalid_value=-1, check_safety=True, method='nearest',
+                 coord_dtype=None):
         """
         View into a tensor or numpy array that is convenient to index using a batch of indices.
         Intended for use on a cache of a function that needs to be indexed into with coordinates
@@ -25,6 +26,7 @@ class MultidimView(abc.ABC):
         :param check_safety: whether to check if the keys are within bound; turn off to get about 40% speedup in
             indexing
         :param method: interpolation method when querying with value ranges, can be 'nearest' or 'linear'
+        :param coord_dtype: dtype of the coordinate keys, defaults to float of the appropriate type
         """
         self.dtype = source.dtype
         self.shape = source.shape
@@ -32,6 +34,7 @@ class MultidimView(abc.ABC):
         self.invalid_value = invalid_value
         self.check_safety = check_safety
         self.method = method
+        self.coordinate_dtype = coord_dtype or self.default_coordinate_dtype
 
         if value_ranges is not None:
             self._min = self.arr([min(range) for range in value_ranges])
@@ -46,6 +49,11 @@ class MultidimView(abc.ABC):
 
         # flattened view of the source data
         self._d = source.reshape(-1)
+
+    @classproperty
+    @abc.abstractmethod
+    def default_coordinate_dtype(cls):
+        """Return the default coordinate type for coordinate keys"""
 
     @classproperty
     @abc.abstractmethod
@@ -132,9 +140,10 @@ class MultidimView(abc.ABC):
         if self.is_key_ravelled(key):
             key = self.unravel_key(key.reshape(-1))
         # convert key from indices to value ranges if necessary
-        if self._is_value_range and (force or key.dtype != self.dtype):
+        if self._is_value_range and (force or key.dtype != self.coordinate_dtype):
             value_key = self.stack(
-                [self.cast(key[..., i] * self._resolution[i] + self._min[i], self.dtype) for i in range(self.dim)],
+                [self.cast(key[..., i] * self._resolution[i] + self._min[i], self.coordinate_dtype) for i in
+                 range(self.dim)],
                 dim=-1)
             key = value_key
         return key
