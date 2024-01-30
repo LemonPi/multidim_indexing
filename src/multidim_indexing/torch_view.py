@@ -35,6 +35,10 @@ class TorchMultidimView(MultidimView):
         return torch.all(arr, dim=dim)
 
     @classmethod
+    def any(cls, arr, dim=0):
+        return torch.any(arr, dim=dim)
+
+    @classmethod
     def is_valid_arr_value(cls, val, valid):
         return torch.is_tensor(val) and torch.numel(val) == torch.numel(valid)
 

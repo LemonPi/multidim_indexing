@@ -44,10 +44,11 @@ class MultidimView(abc.ABC):
             shape = self.arr(self.shape)
             self._resolution = (self._max - self._min) / (shape - 1)
             # if some dim of shape is 1, then resolution for it is undefined
-            valid_resolution = self._resolution[~self._resolution.isnan()]
-            if len(valid_resolution) > 0:
+            invalid_resolution = self._resolution.isnan()
+            valid_resolution_val = self._resolution[~invalid_resolution]
+            if self.any(invalid_resolution) and len(valid_resolution_val) > 0:
                 # we assume that it'll have the same resolution as the first non-1 dim
-                self._resolution[shape == 1] = valid_resolution[0]
+                self._resolution[invalid_resolution] = valid_resolution_val[0]
         else:
             self._min = self.lib.zeros(self.dim, dtype=self.int)
             self._max = self.arr(source.shape, dtype=self.int) - 1
@@ -92,6 +93,11 @@ class MultidimView(abc.ABC):
     @abc.abstractmethod
     def all(cls, arr, dim=0):
         """Logically evaluate to true iff all elements of arr is true"""
+
+    @classmethod
+    @abc.abstractmethod
+    def any(cls, arr, dim=0):
+        """Logically evaluate to true if any elements of arr is true"""
 
     @classmethod
     @abc.abstractmethod

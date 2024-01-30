@@ -30,6 +30,10 @@ class NumpyMultidimView(MultidimView):
         return np.all(arr, axis=dim)
 
     @classmethod
+    def any(cls, arr, dim=0):
+        return np.any(arr, axis=dim)
+
+    @classmethod
     def is_valid_arr_value(cls, val, valid):
         return not np.isscalar(val) and val.size == valid.size
 
