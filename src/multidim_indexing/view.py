@@ -44,7 +44,7 @@ class MultidimView(abc.ABC):
             shape = self.arr(self.shape)
             self._resolution = (self._max - self._min) / (shape - 1)
             # if some dim of shape is 1, then resolution for it is undefined
-            invalid_resolution = self._resolution.isnan()
+            invalid_resolution = self.lib.isnan(self._resolution)
             valid_resolution_val = self._resolution[~invalid_resolution]
             if len(shape) != len(self._resolution):
                 raise RuntimeError(f"Shape {shape} of source is not compatible with value_ranges {value_ranges}")
@@ -141,13 +141,12 @@ class MultidimView(abc.ABC):
     def ensure_index_key(self, key, force=False):
         if self.is_key_ravelled(key):
             key = self.unravel_key(key.reshape(-1))
-        # convert key from value ranges to indices if necessary
+
         if self._is_value_range and (force or key.dtype != self.int):
-            index_key = self.stack(
-                [self.cast(self.lib.round((key[..., i] - self._min[i]) / self._resolution[i]), self.int) for i in
-                 range(self.dim)],
-                dim=-1)
+            offsets = (key - self._min) / self._resolution
+            index_key = self.cast(offsets.round(), self.int)
             key = index_key
+
         return key
 
     def ensure_value_key(self, key, force=False):
@@ -155,17 +154,24 @@ class MultidimView(abc.ABC):
             key = self.unravel_key(key.reshape(-1))
         # convert key from indices to value ranges if necessary
         if self._is_value_range and (force or key.dtype != self.coordinate_dtype):
-            value_key = self.stack(
-                [self.cast(key[..., i] * self._resolution[i] + self._min[i], self.coordinate_dtype) for i in
-                 range(self.dim)],
-                dim=-1)
+            # scales = torch.tensor(self._resolution, device=key.device, dtype=self.coordinate_dtype)
+            scales = self._resolution
+            # offsets = torch.tensor(self._min, device=key.device, dtype=self.coordinate_dtype)
+            offsets = self.cast(self._min, self.coordinate_dtype)
+
+            # Broadcasting the scales and offsets across the last dimension
+            value_key = key * scales + offsets
+
+            if key.dtype != self.coordinate_dtype:
+                value_key = value_key.to(self.coordinate_dtype)
+
             key = value_key
+
         return key
 
     def get_valid_values(self, key):
-        return self.all(
-            self.stack([(self._min[i] <= key[..., i]) & (key[..., i] <= self._max[i]) for i in range(self.dim)]),
-            dim=0)
+        is_valid = (self._min <= key) & (key <= self._max)
+        return self.all(is_valid, dim=-1)
 
     def _check_and_flatten_key(self, key):
         """Flatten batch dimensions of key to ensure it is N x d"""
