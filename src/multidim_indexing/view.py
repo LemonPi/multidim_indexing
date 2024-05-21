@@ -230,30 +230,38 @@ class MultidimView(abc.ABC):
                 res = self._d[flat_key]
         elif self.method == 'linear':
             key = self._check_and_flatten_key(key)
-            idx_raw = self.stack([(key[..., i] - self._min[i]) / self._resolution[i] for i in range(self.dim)], dim=-1)
+            idx_raw = (key - self._min) / self._resolution
+
             idx_left = self.cast(self.lib.floor(idx_raw), self.int)
             idx_right = idx_left + 1
 
             # check validity directly on the bounds of the indices
-            a = self.lib.logical_and(idx_left >= 0, idx_left < self.arr(self.shape, dtype=self.int))
-            b = self.lib.logical_and(idx_right >= 0, idx_right < self.arr(self.shape, dtype=self.int))
-            valid = self.all(a & b, dim=-1)
+            shape_arr = self.arr(self.shape, dtype=self.int)
+            a = self.lib.logical_and(idx_left >= 0, idx_left < shape_arr)
+            b = self.lib.logical_and(idx_right >= 0, idx_right < shape_arr)
+            valid = self.all(a, dim=-1) & self.all(b, dim=-1)
             idx_left = idx_left[valid]
-            idx_right = idx_right[valid]
+            idx_raw = idx_raw[valid]
 
-            idxs = list(zip(idx_left.T, idx_right.T))
+            # Calculate the indices for the vertices of the 3D cube surrounding the interpolation point
+            offsets = self.arr(tuple(itertools.product([0, 1], repeat=self.dim)), dtype=self.int)
+            # All combinations of idx_left with [0, 1] offsets in 3 dimensions
+            corner_indices = idx_left[:, None, :] + offsets
 
-            dists_left = idx_raw[valid] - idx_left
-            dists_right = 1 - dists_left
-            dists = list(zip(dists_left.T, dists_right.T))
+            # Compute ravel indices for all corners in one step
+            flat_corner_indices = self.ravel_multi_index(corner_indices.view(-1, 3), self.shape)
+            flat_corner_indices = flat_corner_indices.view(-1,
+                                                           2 ** self.dim)  # Reshape back to the number of points and corners
 
-            # iterate over the vertices of a hypercube
-            values = 0
-            for indexer in itertools.product([0, 1], repeat=self.dim):
-                this_idx = [idx[onoff] for onoff, idx in zip(indexer, idxs)]
-                flat_idx = self.ravel_multi_index(self.stack(this_idx, dim=-1), self.shape)
-                deltas = [dist[1 - onoff] for onoff, dist in zip(indexer, dists)]
-                values = values + self._d[flat_idx] * self.lib.prod(self.stack(deltas), dim=0)
+            # Compute distances for interpolation only once
+            dist_left = idx_raw - idx_left
+            dist_right = 1 - dist_left
+            # Calculate the interpolation weights for all corners
+            weights = dist_left[:, None, :] ** offsets * dist_right[:, None, :] ** (1 - offsets)
+            weights = weights.prod(dim=2)  # Weights for each corner
+
+            # Index the data tensor and compute the interpolation
+            values = (self._d[flat_corner_indices] * weights).sum(dim=1)
 
             if self.check_safety:
                 N = valid.shape[0]
