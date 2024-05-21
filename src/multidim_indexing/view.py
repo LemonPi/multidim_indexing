@@ -10,6 +10,9 @@ class classproperty(object):
         return self.f(owner)
 
 
+eps = 1e-8
+
+
 class MultidimView(abc.ABC):
     def __init__(self, source, value_ranges=None, invalid_value=-1, check_safety=True, method='nearest',
                  coord_dtype=None):
@@ -37,8 +40,8 @@ class MultidimView(abc.ABC):
         self.coordinate_dtype = coord_dtype or self.default_coordinate_dtype
 
         if value_ranges is not None:
-            self._min = self.arr([min(range) for range in value_ranges])
-            self._max = self.arr([max(range) for range in value_ranges])
+            self._min = self.arr([min(range) for range in value_ranges]) - eps
+            self._max = self.arr([max(range) for range in value_ranges]) + eps
             self._is_value_range = True
             # want an inclusive range on the min and max, so indexing with max should be valid
             shape = self.arr(self.shape)
