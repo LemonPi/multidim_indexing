@@ -1,6 +1,6 @@
 [project]
 name = "multidim_indexing"
-version = "0.9.2"
+version = "0.9.3"
 description = "Multidimensional batch indexing of pytorch tensors and numpy arrays"
 readme = "README.md" # Optional
 
