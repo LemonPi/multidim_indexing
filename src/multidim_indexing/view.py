@@ -249,10 +249,9 @@ class MultidimView(abc.ABC):
             corner_indices = idx_left[:, None, :] + offsets
 
             # Compute ravel indices for all corners in one step
-            flat_corner_indices = self.ravel_multi_index(corner_indices.view(-1, 3), self.shape)
+            flat_corner_indices = self.ravel_multi_index(corner_indices.view(-1, self.dim), self.shape)
             flat_corner_indices = flat_corner_indices.view(-1,
                                                            2 ** self.dim)  # Reshape back to the number of points and corners
-
             # Compute distances for interpolation only once
             dist_left = idx_raw - idx_left
             dist_right = 1 - dist_left
