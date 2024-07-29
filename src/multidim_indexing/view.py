@@ -47,7 +47,7 @@ class MultidimView(abc.ABC):
             shape = self.arr(self.shape)
             self._resolution = (self._max - self._min) / (shape - 1)
             # if some dim of shape is 1, then resolution for it is undefined
-            invalid_resolution = self.lib.isnan(self._resolution)
+            invalid_resolution = self.lib.isnan(self._resolution) | self.lib.isinf(self._resolution)
             valid_resolution_val = self._resolution[~invalid_resolution]
             if len(shape) != len(self._resolution):
                 raise RuntimeError(f"Shape {shape} of source is not compatible with value_ranges {value_ranges}")
