@@ -1,6 +1,10 @@
+import logging
 import torch
+import torch.nn.functional as F
 from typing import List, Tuple, Union
 from multidim_indexing.view import MultidimView, classproperty
+
+logger = logging.getLogger(__name__)
 
 
 class TorchMultidimView(MultidimView):
@@ -10,6 +14,22 @@ class TorchMultidimView(MultidimView):
         # Cache ravel stride coefficients — shape is fixed per instance
         shape_t = torch.tensor(self.shape + (1,), device=self.device)
         self._ravel_coefs = shape_t[1:].flipud().cumprod(dim=0).flipud()
+
+        # Precompute grid_sample input for linear interpolation on 2D/3D float data
+        self._gs_input = None
+        if self._is_value_range and self.method == 'linear' and self.dim in (2, 3):
+            if self._d.is_floating_point():
+                # _gs_input is a view of _d, so __setitem__ mutations are reflected
+                self._gs_input = self._d.reshape(self.shape).unsqueeze(0).unsqueeze(0)
+                # Precompute scale for coordinate normalization to [-1, 1]
+                # normalized = (coord - _min) * _gs_scale - 1
+                self._gs_scale = 2.0 / (self._max - self._min)
+            else:
+                logger.warning(
+                    "Linear interpolation on %dD data with dtype %s cannot use the fast "
+                    "grid_sample path (requires floating point). Convert source to float "
+                    "for ~3-12x speedup.", self.dim, self._d.dtype
+                )
 
     @classproperty
     def default_coordinate_dtype(cls):
@@ -70,6 +90,40 @@ class TorchMultidimView(MultidimView):
 
         flat_key = (index_key * self._ravel_coefs).sum(dim=-1)
         return flat_key, valid
+
+    def __getitem__(self, key):
+        if self._gs_input is not None:
+            return self._getitem_grid_sample(key)
+        return super().__getitem__(key)
+
+    def _getitem_grid_sample(self, key):
+        orig_key_shape = key.shape
+        key = self._check_and_flatten_key(key)
+        N = key.shape[0]
+
+        # Normalize coordinates to [-1, 1] for grid_sample(align_corners=True)
+        normalized = (key - self._min) * self._gs_scale - 1
+        # grid_sample expects reversed dimension order: last grid dim = last spatial dim
+        normalized = normalized.flip(-1)
+
+        if self.dim == 3:
+            grid = normalized.reshape(1, 1, 1, N, 3)
+        else:  # dim == 2
+            grid = normalized.reshape(1, 1, N, 2)
+
+        res = F.grid_sample(self._gs_input, grid, mode='bilinear',
+                            align_corners=True, padding_mode='zeros')
+        res = res.reshape(N)
+
+        if self.check_safety:
+            valid = ((self._min <= key) & (key <= self._max)).all(dim=-1)
+            if not valid.all():
+                if callable(self.invalid_value):
+                    res[~valid] = self.invalid_value(key[~valid])
+                else:
+                    res[~valid] = self.invalid_value
+
+        return res.reshape(list(orig_key_shape[:-2]) + [-1])
 
     @classmethod
     def transpose(cls, arr):
