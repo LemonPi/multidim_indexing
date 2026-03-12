@@ -63,9 +63,9 @@ dependencies = [# Optional
 # Similar to `dependencies` above, these must be valid existing
 # projects.
 [project.optional-dependencies] # Optional
-torch = ['torch']
+torch = ['torch>=1.4']
 numpy = ['numpy']
-all = ['torch', 'numpy']
+all = ['torch>=1.4', 'numpy']
 test = ["pytest"]
 
 # List URLs that are relevant to your project
