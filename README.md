@@ -1,3 +1,7 @@
+[![PyPI version](https://badge.fury.io/py/multidim-indexing.svg)](https://pypi.org/project/multidim-indexing/)
+[![Tests](https://github.com/LemonPi/multidim_indexing/actions/workflows/test.yml/badge.svg)](https://github.com/LemonPi/multidim_indexing/actions/workflows/test.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
 This repository documents the syntax for multidimensional indexing for Pytorch and Numpy, and offers classes that
 encapsulates the process and provides additional features on top for data that represents a coordinate grid.
 You can follow along the code blocks here with the included Jupyter notebook.
