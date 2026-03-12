@@ -140,6 +140,43 @@ def bench_get_valid_ravel_indices():
     print()
 
 
+def bench_batched_lookup():
+    """BatchedViewLookup vs sequential loop over S views."""
+    print("=" * 60)
+    print("BatchedViewLookup vs sequential loop (S=8, 3D)")
+    print("=" * 60)
+
+    S = 8
+    torch.manual_seed(0)
+    views = []
+    for i in range(S):
+        data = torch.randn(100, 100, 100)
+        views.append(view.TorchMultidimView(
+            data, value_ranges=[(0, 1), (0, 5), (0, 10)], check_safety=True
+        ))
+    batched = view.BatchedViewLookup(views)
+
+    for N in [20_000, 100_000]:
+        pts_list = [torch.rand(N, 3) * torch.tensor([1.0, 5.0, 10.0]) for _ in range(S)]
+        pts_stacked = torch.stack(pts_list)  # (S, N, 3)
+
+        def sequential():
+            results = []
+            for i, v in enumerate(views):
+                results.append(v[pts_list[i]])
+            return torch.stack(results)
+
+        def batched_call():
+            return batched(pts_stacked)
+
+        med_seq, std_seq = bench(sequential)
+        med_bat, std_bat = bench(batched_call)
+        print(f"  N={N:>7d}  sequential  {med_seq:6.2f} ms (std {std_seq:.2f})")
+        print(f"  N={N:>7d}  batched     {med_bat:6.2f} ms (std {std_bat:.2f})")
+        print(f"  N={N:>7d}  speedup     {med_seq / med_bat:.2f}x")
+    print()
+
+
 def bench_numpy_nearest_value_range():
     """NumPy: end-to-end nearest-neighbor with value ranges."""
     print("=" * 60)
@@ -194,6 +231,7 @@ if __name__ == "__main__":
     bench_get_valid_ravel_indices()
     bench_nearest_value_range()
     bench_linear_value_range()
+    bench_batched_lookup()
     print("\n>>> NumPy <<<\n")
     bench_numpy_nearest_value_range()
     bench_numpy_linear_value_range()

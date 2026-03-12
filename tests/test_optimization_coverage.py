@@ -171,6 +171,84 @@ def test_single_dim_shape_with_value_ranges():
     assert not torch.all(result == data_view.invalid_value)
 
 
+# ==================== BatchedViewLookup tests ====================
+
+
+def test_batched_lookup_matches_sequential():
+    """BatchedViewLookup should match querying each view individually."""
+    S = 4
+    N = 500
+    torch.manual_seed(42)
+
+    views = []
+    for i in range(S):
+        data = torch.randn(10 + i, 20 + i, 30 + i)
+        ranges = [(0, 1.0 + i), (0, 2.0 + i), (0, 3.0 + i)]
+        views.append(view.TorchMultidimView(data, value_ranges=ranges, check_safety=True))
+
+    batched = view.BatchedViewLookup(views)
+
+    # Generate in-range queries per view
+    pts_list = []
+    for i, v in enumerate(views):
+        q = torch.rand(N, 3) * torch.tensor([1.0 + i, 2.0 + i, 3.0 + i])
+        pts_list.append(q)
+    pts = torch.stack(pts_list)  # (S, N, 3)
+
+    values, valid = batched(pts)
+    assert values.shape == (S, N)
+    assert valid.shape == (S, N)
+
+    # Compare against sequential single-view queries
+    for i, v in enumerate(views):
+        expected = v[pts[i]]
+        # All points are in range, so all should be valid
+        assert torch.all(valid[i])
+        assert torch.allclose(values[i], expected)
+
+
+def test_batched_lookup_out_of_bounds():
+    """BatchedViewLookup returns valid=False for out-of-bounds queries."""
+    data = torch.randn(10, 10, 10)
+    views = [
+        view.TorchMultidimView(data, value_ranges=[(0, 1), (0, 1), (0, 1)]),
+        view.TorchMultidimView(data, value_ranges=[(0, 1), (0, 1), (0, 1)]),
+    ]
+    batched = view.BatchedViewLookup(views)
+
+    N = 100
+    torch.manual_seed(42)
+    # Mix of in-bounds and out-of-bounds
+    pts_in = torch.rand(N // 2, 3)
+    pts_out = torch.rand(N // 2, 3) + 5.0  # way out of range
+    pts_mixed = torch.cat([pts_in, pts_out], dim=0)
+    pts = torch.stack([pts_mixed, pts_mixed])  # (2, N, 3)
+
+    values, valid = batched(pts)
+    assert valid[:, :N // 2].all()
+    assert not valid[:, N // 2:].any()
+    assert (values[~valid] == 0).all()
+
+
+def test_batched_lookup_different_shapes():
+    """BatchedViewLookup works with views of different grid shapes."""
+    torch.manual_seed(42)
+    views = [
+        view.TorchMultidimView(torch.randn(5, 10, 15), value_ranges=[(0, 1), (0, 2), (0, 3)]),
+        view.TorchMultidimView(torch.randn(20, 25, 30), value_ranges=[(0, 1), (0, 2), (0, 3)]),
+    ]
+    batched = view.BatchedViewLookup(views)
+
+    N = 200
+    pts = torch.rand(2, N, 3) * torch.tensor([1.0, 2.0, 3.0])
+    values, valid = batched(pts)
+
+    for i, v in enumerate(views):
+        expected = v[pts[i]]
+        in_bounds = valid[i]
+        assert torch.allclose(values[i][in_bounds], expected[in_bounds])
+
+
 # ==================== NumPy backend tests ====================
 
 
