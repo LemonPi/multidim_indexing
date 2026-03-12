@@ -54,6 +54,7 @@ class MultidimView(abc.ABC):
             if self.any(invalid_resolution) and len(valid_resolution_val) > 0:
                 # we assume that it'll have the same resolution as the first non-1 dim
                 self._resolution[invalid_resolution] = valid_resolution_val[0]
+            self._inv_resolution = 1.0 / self._resolution
         else:
             self._min = self.lib.zeros(self.dim, dtype=self.int)
             self._max = self.arr(source.shape, dtype=self.int) - 1
@@ -146,7 +147,7 @@ class MultidimView(abc.ABC):
             key = self.unravel_key(key.reshape(-1))
 
         if self._is_value_range and (force or key.dtype != self.int):
-            offsets = (key - self._min) / self._resolution
+            offsets = (key - self._min) * self._inv_resolution
             index_key = self.cast(offsets.round(), self.int)
             key = index_key
 
@@ -166,7 +167,7 @@ class MultidimView(abc.ABC):
             value_key = key * scales + offsets
 
             if key.dtype != self.coordinate_dtype:
-                value_key = value_key.to(self.coordinate_dtype)
+                value_key = self.cast(value_key, self.coordinate_dtype)
 
             key = value_key
 
@@ -230,7 +231,7 @@ class MultidimView(abc.ABC):
                 res = self._d[flat_key]
         elif self.method == 'linear':
             key = self._check_and_flatten_key(key)
-            idx_raw = (key - self._min) / self._resolution
+            idx_raw = (key - self._min) * self._inv_resolution
 
             idx_left = self.cast(self.lib.floor(idx_raw), self.int)
             idx_right = idx_left + 1
@@ -249,18 +250,18 @@ class MultidimView(abc.ABC):
             corner_indices = idx_left[:, None, :] + offsets
 
             # Compute ravel indices for all corners in one step
-            flat_corner_indices = self.ravel_multi_index(corner_indices.view(-1, self.dim), self.shape)
-            flat_corner_indices = flat_corner_indices.view(-1,
-                                                           2 ** self.dim)  # Reshape back to the number of points and corners
+            flat_corner_indices = self.ravel_multi_index(corner_indices.reshape(-1, self.dim), self.shape)
+            flat_corner_indices = flat_corner_indices.reshape(-1,
+                                                              2 ** self.dim)  # Reshape back to the number of points and corners
             # Compute distances for interpolation only once
             dist_left = idx_raw - idx_left
             dist_right = 1 - dist_left
             # Calculate the interpolation weights for all corners
             weights = dist_left[:, None, :] ** offsets * dist_right[:, None, :] ** (1 - offsets)
-            weights = weights.prod(dim=2)  # Weights for each corner
+            weights = weights.prod(axis=2)  # Weights for each corner
 
             # Index the data tensor and compute the interpolation
-            values = (self._d[flat_corner_indices] * weights).sum(dim=1)
+            values = (self._d[flat_corner_indices] * weights).sum(axis=1)
 
             if self.check_safety:
                 N = valid.shape[0]

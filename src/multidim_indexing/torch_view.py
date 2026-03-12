@@ -7,6 +7,9 @@ class TorchMultidimView(MultidimView):
     def __init__(self, source, *args, **kwargs):
         self.device = source.device
         super(TorchMultidimView, self).__init__(source, *args, **kwargs)
+        # Cache ravel stride coefficients — shape is fixed per instance
+        shape_t = torch.tensor(self.shape + (1,), device=self.device)
+        self._ravel_coefs = shape_t[1:].flipud().cumprod(dim=0).flipud()
 
     @classproperty
     def default_coordinate_dtype(cls):
@@ -42,12 +45,31 @@ class TorchMultidimView(MultidimView):
     def is_valid_arr_value(cls, val, valid):
         return torch.is_tensor(val) and torch.numel(val) == torch.numel(valid)
 
-    @classmethod
-    def ravel_multi_index(cls, key, shape):
-        return ravel_multi_index(key, shape)
+    def ravel_multi_index(self, key, shape=None):
+        return (key * self._ravel_coefs).sum(dim=-1)
 
     def unravel_key(self, key):
         return unravel_index(key, self.shape)
+
+    def get_valid_ravel_indices(self, key):
+        """Fused bounds-check, coordinate conversion, and ravel in one pass."""
+        key = self._check_and_flatten_key(key)
+
+        if self.check_safety:
+            valid = (self._min <= key) & (key <= self._max)
+            valid = torch.all(valid, dim=-1)
+            valid_key = key[valid]
+        else:
+            valid = True
+            valid_key = key
+
+        if self._is_value_range and valid_key.dtype != self.int:
+            index_key = ((valid_key - self._min) * self._inv_resolution).round().to(torch.long)
+        else:
+            index_key = valid_key
+
+        flat_key = (index_key * self._ravel_coefs).sum(dim=-1)
+        return flat_key, valid
 
     @classmethod
     def transpose(cls, arr):
